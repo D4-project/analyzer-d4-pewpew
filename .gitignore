@@ -13,3 +13,17 @@
 
 # Dependency directories (remove the comment below to include it)
 # vendor/
+
+# Log files
+*.log
+#
+# Binary
+analyzer-d4-pewpew
+#
+# Redis backups
+*.rdb
+# redis dir
+redis
+
+# other 
+.idea
