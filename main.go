@@ -1,17 +1,24 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"flag"
 	"fmt"
 	config "github.com/D4-project/d4-golang-utils/config"
+	"github.com/D4-project/d4-golang-utils/inputreader"
 	"github.com/gomodule/redigo/redis"
+	"io"
 	"log"
 	"os"
 	"os/signal"
 	"strconv"
 	"strings"
-	//	_ "github.com/gomodule/redigo/redis"
+	"time"
+
+	"github.com/labstack/echo"
+	"github.com/labstack/echo/middleware"
+	"golang.org/x/net/websocket"
 )
 
 type (
@@ -26,11 +33,13 @@ type (
 
 // Setting up Flags
 var (
-	confdir = flag.String("c", "conf.sample", "configuration directory")
-	port    = flag.String("port", "80", "http server port")
-	buf     bytes.Buffer
-	logger  = log.New(&buf, "INFO: ", log.Lshortfile)
-	redisD4 redis.Conn
+	confdir        = flag.String("c", "conf.sample", "configuration directory")
+	port           = flag.String("port", "80", "http server port")
+	buf            bytes.Buffer
+	logger         = log.New(&buf, "INFO: ", log.Lshortfile)
+	redisCon       redis.Conn
+	redisInputPool *redis.Pool
+	src            io.Reader
 )
 
 func main() {
@@ -100,14 +109,67 @@ func main() {
 	} else {
 		log.Fatal("Redis config error.")
 	}
-
 	rd4.redisQueue = string(config.ReadConfigFile(*confdir, "redis_queue"))
-	// Connect to D4 Redis
-	redisD4, err = redis.Dial("tcp", rd4.redisHost+":"+rd4.redisPort, redis.DialDatabase(rd4.redisDB))
-	if err != nil {
-		logger.Fatal(err)
-	}
-	defer redisD4.Close()
 
+	// Create a new redis connection pool
+	redisInputPool = newPool(rd4.redisHost+":"+rd4.redisPort, 16)
+	redisCon, err = redisInputPool.Dial()
+	if err != nil {
+		logger.Fatal("Could not connect to d4 Redis")
+	}
+	// Create the Redis Reader from which we will get the data from
+	src, err = inputreader.NewLPOPReader(&redisCon, rd4.redisDB, rd4.redisQueue)
+	if err != nil {
+		logger.Fatal("Could not create d4 Redis Descriptor %q \n", err)
+	}
+
+	// Create the dispatching channel
+	dispatch := make(chan string)
+	// Create a scanner
+	scanner := bufio.NewScanner(src)
+
+	e := echo.New()
+	e.Use(middleware.Logger())
+	e.Use(middleware.Recover())
+	e.Static("/", "./public")
+	e.GET("/ws", send(dispatch))
+
+	// Launch LPOP routine
+	go func(co chan<- string, sc *bufio.Scanner) {
+		for sc.Scan() {
+			fmt.Print(sc.Text())
+			co <- sc.Text()
+		}
+	}(dispatch, scanner)
+
+	e.Logger.Fatal(e.Start(":1323"))
 	logger.Println("Exiting")
+}
+
+func send(co chan string) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		websocket.Handler(func(ws *websocket.Conn) {
+			defer ws.Close()
+			for {
+				msg := <-co
+				fmt.Print(msg)
+				// Write
+				err := websocket.Message.Send(ws, msg)
+				if err != nil {
+					c.Logger().Error(err)
+				}
+			}
+		}).ServeHTTP(c.Response(), c.Request())
+		return nil
+	}
+}
+
+func newPool(addr string, maxconn int) *redis.Pool {
+	return &redis.Pool{
+		MaxActive:   maxconn,
+		MaxIdle:     3,
+		IdleTimeout: 240 * time.Second,
+		// Dial or DialContext must be set. When both are set, DialContext takes precedence over Dial.
+		Dial: func() (redis.Conn, error) { return redis.Dial("tcp", addr) },
+	}
 }
