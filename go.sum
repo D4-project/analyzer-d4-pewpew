@@ -1,0 +1,5 @@
+github.com/D4-project/d4-golang-utils v0.1.6 h1:g8To+VLwa5ucH8hcmRZGx/hmrHmn6AD6A0vaiYKFAQc=
+github.com/D4-project/d4-golang-utils v0.1.6/go.mod h1:GGR5KMhvABZtIfmS5jZkwQnBoP+9/V0ZEETSGiWLaM4=
+github.com/gofrs/uuid v3.2.0+incompatible/go.mod h1:b2aQJv3Z4Fp6yNu3cdSllBxTCLRxnplIgP/c0N/04lM=
+github.com/gomodule/redigo v2.0.0+incompatible h1:K/R+8tc58AaqLkqG2Ol3Qk+DR/TlNuhuh457pBFPtt0=
+github.com/gomodule/redigo v2.0.0+incompatible/go.mod h1:B4C85qUVwatsJoIUNIfCRsp7qO0iAmpGFZ4EELWSbC4=
