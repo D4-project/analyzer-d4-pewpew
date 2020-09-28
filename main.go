@@ -31,6 +31,16 @@ type (
 	}
 )
 
+type DispatchContext struct {
+	echo.Context
+	// mean of registering
+	cu chan chan string
+	// mean of getting updates
+	c chan string
+	// mean of being kickedout
+	gtfo chan chan string
+}
+
 // Setting up Flags
 var (
 	confdir        = flag.String("c", "conf.sample", "configuration directory")
@@ -123,45 +133,121 @@ func main() {
 		logger.Fatal("Could not create d4 Redis Descriptor %q \n", err)
 	}
 
-	// Create the dispatching channel
-	dispatch := make(chan string)
-	// Create a scanner
-	scanner := bufio.NewScanner(src)
-
+	// Create webserver
 	e := echo.New()
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
+
+	// clientUpdate is a chan of chan string
+	clientUpdate := make(chan chan string, 0)
+	// gtfoUpdate is a chan of chan string to remove
+	gtfoUpdate := make(chan chan string, 4096)
+
+	e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			cc := &DispatchContext{c, clientUpdate, make(chan string), gtfoUpdate}
+			return next(cc)
+		}
+	})
 	e.Static("/", "./public")
-	e.GET("/ws", send(dispatch))
 
 	// Launch LPOP routine
-	go func(co chan<- string, sc *bufio.Scanner) {
-		for sc.Scan() {
-			fmt.Print(sc.Text())
-			co <- sc.Text()
-		}
-	}(dispatch, scanner)
+	input := lpoper(src, sortie)
 
+	// Launch the dispatch routine
+	go dispatch(input, clientUpdate, gtfoUpdate)
+
+	e.GET("/ws", send)
+
+	// Launch webserver
 	e.Logger.Fatal(e.Start(":1323"))
 	logger.Println("Exiting")
 }
 
-func send(co chan string) echo.HandlerFunc {
-	return func(c echo.Context) error {
-		websocket.Handler(func(ws *websocket.Conn) {
-			defer ws.Close()
-			for {
-				msg := <-co
-				fmt.Print(msg)
-				// Write
-				err := websocket.Message.Send(ws, msg)
-				if err != nil {
-					c.Logger().Error(err)
+func lpoper(src io.Reader, sortie chan os.Signal) <-chan string {
+	// Create a scanner on input redis
+	rateLimiter := time.Tick(1 * time.Second)
+	c := make(chan string)
+	go func() {
+		for {
+			select {
+			case <-rateLimiter:
+				sc := bufio.NewScanner(src)
+				// input routine
+				for sc.Scan() {
+					c <- sc.Text()
+				}
+				if err := sc.Err(); err != nil {
+					fmt.Sprintln("reading redis:", err)
+				}
+				// Exit signal
+			case <-sortie:
+				logger.Println("Exiting")
+				os.Exit(0)
+			}
+		}
+	}()
+	return c
+}
+
+func dispatch(input <-chan string, clientsUpdate chan chan string, gtfoUpdate chan chan string) {
+	logger.Println("Loading dispatcher.")
+	// client R is a slice containing the clients
+	clientR := make([]chan string, 0)
+	for {
+		select {
+		case client := <-clientsUpdate:
+			// new client connected, add it to the registry
+			clientR = append(clientR, client)
+			logger.Println("New client, Number of clients:", len(clientR))
+		case i := <-input:
+			// input to send to the connected clients
+			for j, c := range clientR {
+				logger.Printf("CLIENT: %d", j)
+				c <- i
+			}
+		case gtfo := <-gtfoUpdate:
+			// Rebuild clientR without the gtfo
+			tmp := make([]chan string, 0)
+			for _, r := range clientR {
+				if r != gtfo {
+					tmp = append(tmp, r)
 				}
 			}
-		}).ServeHTTP(c.Response(), c.Request())
-		return nil
+			clientR = tmp
+		}
 	}
+}
+
+func (d *DispatchContext) Register() {
+	println("Registering new client")
+	logger.Println("Registering new client %p", d.c)
+	d.cu <- d.c
+}
+
+func (d *DispatchContext) Remove() {
+	println("Removing disconnected client")
+	logger.Println("Removing disconnected client %p", d.c)
+	d.gtfo <- d.c
+}
+
+func send(c echo.Context) error {
+	cc := c.(*DispatchContext)
+	cc.Register()
+	websocket.Handler(func(ws *websocket.Conn) {
+		defer ws.Close()
+		for msg := range cc.c {
+			logger.Printf("Sending %q to %q", msg, c.Request().UserAgent())
+			// Write in the websocket
+			err := websocket.Message.Send(ws, msg)
+			if err != nil {
+				// Add client the the gtfo list (disconnected)
+				cc.Remove()
+				c.Logger().Error(err)
+			}
+		}
+	}).ServeHTTP(c.Response(), c.Request())
+	return nil
 }
 
 func newPool(addr string, maxconn int) *redis.Pool {
