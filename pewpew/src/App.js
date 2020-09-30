@@ -2,8 +2,6 @@
 import React, { Component } from 'react';
 import DeckGL, {GeoJsonLayer, ArcLayer} from 'deck.gl';
 
-// const COUNTRIES =
-  // 'https://d2ad6b4ur7yvpq.cloudfront.net/naturalearth-3.3.0/ne_50m_admin_0_scale_rank.geojson'; //eslint-disable-line
 const COUNTRIES = window.location + 'map/ne_50m_admin_0_scale_rank.geojson' ;
 const D4 = [];
 
