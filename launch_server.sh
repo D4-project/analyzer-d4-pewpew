@@ -1,4 +1,6 @@
 #!/bin/bash
+screen -X -S pewpew quit
+
 go fmt
 go build
 

@@ -18,3 +18,6 @@ pushd redis/
 git checkout 5.0
 make
 popd
+
+# node #
+sudo apt install node npm rsync -y

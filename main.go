@@ -149,7 +149,8 @@ func main() {
 			return next(cc)
 		}
 	})
-	e.Static("/", "./public")
+	e.Static("/", "./build")
+	e.Static("/map", "./map")
 
 	// Launch LPOP routine
 	input := lpoper(src, sortie)
