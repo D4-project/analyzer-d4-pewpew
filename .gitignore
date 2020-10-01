@@ -27,5 +27,4 @@ redis
 
 # other 
 .idea
-#build/*
-build/daily.json
+build/*
