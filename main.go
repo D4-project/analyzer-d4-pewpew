@@ -142,6 +142,8 @@ func main() {
 	clientUpdate := make(chan chan string, 0)
 	// gtfoUpdate is a chan of chan string to remove
 	gtfoUpdate := make(chan chan string, 4096)
+	// store is a channel used to keep a daily log of events
+	storeUpdate := make(chan string)
 
 	e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
@@ -155,8 +157,11 @@ func main() {
 	// Launch LPOP routine
 	input := lpoper(src, sortie)
 
+	// Launch the static file routine
+	go store(storeUpdate, sortie)
+
 	// Launch the dispatch routine
-	go dispatch(input, clientUpdate, gtfoUpdate)
+	go dispatch(input, clientUpdate, gtfoUpdate, storeUpdate, sortie)
 
 	e.GET("/ws", send)
 
@@ -191,7 +196,7 @@ func lpoper(src io.Reader, sortie chan os.Signal) <-chan string {
 	return c
 }
 
-func dispatch(input <-chan string, clientsUpdate chan chan string, gtfoUpdate chan chan string) {
+func dispatch(input <-chan string, clientsUpdate chan chan string, gtfoUpdate chan chan string, storeUpdate chan string, sortie chan os.Signal) {
 	logger.Println("Loading dispatcher.")
 	// client R is a slice containing the clients
 	clientR := make([]chan string, 0)
@@ -202,11 +207,13 @@ func dispatch(input <-chan string, clientsUpdate chan chan string, gtfoUpdate ch
 			clientR = append(clientR, client)
 			logger.Println("New client, Number of clients:", len(clientR))
 		case i := <-input:
-			// input to send to the connected clients
+			// input is sent to the connected clients
 			for j, c := range clientR {
 				logger.Printf("CLIENT: %d", j)
 				c <- i
 			}
+			// input is sent to the static file store
+			storeUpdate <- i
 		case gtfo := <-gtfoUpdate:
 			// Rebuild clientR without the gtfo
 			tmp := make([]chan string, 0)
@@ -216,8 +223,34 @@ func dispatch(input <-chan string, clientsUpdate chan chan string, gtfoUpdate ch
 				}
 			}
 			clientR = tmp
+			// Exit signal
+		case <-sortie:
+			logger.Println("Exiting")
+			os.Exit(0)
 		}
 	}
+}
+
+func store(storeUpdate chan string, sortie chan os.Signal) *os.File {
+	file, err := os.Create("./build/daily.json")
+	if err != nil {
+		logger.Printf("Could not create static/daily.json")
+	}
+	defer file.Close()
+
+	w := bufio.NewWriter(file)
+	for {
+		select {
+		case msg := <-storeUpdate:
+			w.WriteString(msg)
+			w.WriteByte('\n')
+			w.Flush()
+		case <-sortie:
+			logger.Println("Exiting")
+			os.Exit(0)
+		}
+	}
+	return file
 }
 
 func (d *DispatchContext) Register() {
