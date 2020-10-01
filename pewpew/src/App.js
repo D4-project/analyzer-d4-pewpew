@@ -1,7 +1,6 @@
 /* global window */
 import React, { Component } from 'react';
-import DeckGL, { GeoJsonLayer, ArcLayer, TRANSITION_EVENTS } from 'deck.gl';
-import ReactMapGL, { FlyToInterpolator } from 'react-map-gl';
+import DeckGL, { GeoJsonLayer, ArcLayer } from 'deck.gl';
 
 const COUNTRIES = window.location + 'map/ne_50m_admin_0_scale_rank.geojson';
 const DAILY = window.location + "daily.json";
@@ -23,10 +22,6 @@ export default class App extends Component {
     };
     this._getData = this._getData.bind(this);
     this._processData = this._processData.bind(this);
-    this._resize = this._resize.bind(this);
-
-    this._interruptionStyle = TRANSITION_EVENTS.BREAK;
-    this._onViewStateChange = this._onViewStateChange.bind(this);
   }
 
   _getData() {
@@ -75,6 +70,7 @@ export default class App extends Component {
       });
 
     this._getData();
+    this._processData();
     window.addEventListener('resize', this._resize);
     this._resize();
   }
@@ -91,10 +87,6 @@ export default class App extends Component {
       this.setState({
         points,
       });
-      // Move the viewport to the last point
-      var last = points[points.length - 1];
-      console.log(last)
-      this._easeTo(last.position[0], last.position[1])
     }
   }
 
@@ -102,30 +94,10 @@ export default class App extends Component {
     window.removeEventListener('resize', this._resize);
   }
 
-  _easeTo({ longitude, latitude }) {
-    this.setState({
-      viewState: {
-        ...this.state.viewState,
-        longitude,
-        latitude,
-        zoom: 11,
-        pitch: 0,
-        bearing: 0,
-        transitionDuration: 'auto',
-        transitionInterpolator: new FlyToInterpolator({ speed: 2 }),
-        transitionInterruption: this._interruptionStyle
-      }
-    });
-  }
-
   _onViewportChange = (viewport) => {
     this.setState({
       viewport: { ...this.state.viewport, ...viewport }
     });
-  }
-
-  _onViewStateChange({ viewState }) {
-    this.setState({ viewState });
   }
 
   _resize = () => {
@@ -136,7 +108,6 @@ export default class App extends Component {
   }
 
   render() {
-    const { viewState } = this.state;
     return (
       <DeckGL controller={true} initialViewState={this.state.viewport}>
         <GeoJsonLayer
