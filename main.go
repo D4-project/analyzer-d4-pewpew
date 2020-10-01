@@ -3,11 +3,13 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"encoding/json"
 	"flag"
 	"fmt"
 	config "github.com/D4-project/d4-golang-utils/config"
 	"github.com/D4-project/d4-golang-utils/inputreader"
 	"github.com/gomodule/redigo/redis"
+	"github.com/robfig/cron/v3"
 	"io"
 	"log"
 	"os"
@@ -28,6 +30,10 @@ type (
 		redisPort  string
 		redisDB    int
 		redisQueue string
+	}
+
+	Cmd struct {
+		Command string `json:"command"`
 	}
 )
 
@@ -158,19 +164,32 @@ func main() {
 	input := lpoper(src, sortie)
 
 	// Launch the static file routine
-	go store(storeUpdate, sortie)
+	daily := store(storeUpdate, sortie)
 
 	// Launch the dispatch routine
 	go dispatch(input, clientUpdate, gtfoUpdate, storeUpdate, sortie)
 
 	e.GET("/ws", send)
 
+	// Set flushing task every day at midnight
+	c := cron.New()
+	c.AddFunc("@midnight", func() {
+		logger.Println("Sending FLUSH command.")
+		m := Cmd{Command: "flush"}
+		b, _ := json.Marshal(m)
+		input <- string(b)
+		// emptying daily.json file
+		daily.Truncate(0)
+	})
+	c.Start()
+
 	// Launch webserver
 	e.Logger.Fatal(e.Start(":1323"))
+
 	logger.Println("Exiting")
 }
 
-func lpoper(src io.Reader, sortie chan os.Signal) <-chan string {
+func lpoper(src io.Reader, sortie chan os.Signal) chan string {
 	// Create a scanner on input redis
 	rateLimiter := time.Tick(1 * time.Second)
 	c := make(chan string)
@@ -231,28 +250,6 @@ func dispatch(input <-chan string, clientsUpdate chan chan string, gtfoUpdate ch
 	}
 }
 
-func store(storeUpdate chan string, sortie chan os.Signal) *os.File {
-	file, err := os.Create("./build/daily.json")
-	if err != nil {
-		logger.Printf("Could not create static/daily.json")
-	}
-	defer file.Close()
-
-	w := bufio.NewWriter(file)
-	for {
-		select {
-		case msg := <-storeUpdate:
-			w.WriteString(msg)
-			w.WriteByte('\n')
-			w.Flush()
-		case <-sortie:
-			logger.Println("Exiting")
-			os.Exit(0)
-		}
-	}
-	return file
-}
-
 func (d *DispatchContext) Register() {
 	println("Registering new client")
 	logger.Println("Registering new client %p", d.c)
@@ -282,6 +279,35 @@ func send(c echo.Context) error {
 		}
 	}).ServeHTTP(c.Response(), c.Request())
 	return nil
+}
+
+func store(storeUpdate chan string, sortie chan os.Signal) *os.File {
+	file, err := os.Create("./build/daily.json")
+	go func() {
+		if err != nil {
+			logger.Printf("Could not create static/daily.json")
+		}
+		defer file.Close()
+
+		w := bufio.NewWriter(file)
+		for {
+			select {
+			case msg := <-storeUpdate:
+				// Strip out command from the daily file
+				var cmd Cmd
+				err := json.Unmarshal([]byte(msg), &cmd)
+				if err != nil {
+					w.WriteString(msg)
+					w.WriteByte('\n')
+					w.Flush()
+				}
+			case <-sortie:
+				logger.Println("Exiting")
+				os.Exit(0)
+			}
+		}
+	}()
+	return file
 }
 
 func newPool(addr string, maxconn int) *redis.Pool {

@@ -44,8 +44,16 @@ export default class App extends Component {
 
     ws.onmessage = function (ev) {
       var json = JSON.parse(ev.data);
-      D4.push(json[0]);
-      up._processData();
+      if (json.hasOwnProperty('command')){
+        if (json.command == "flush"){
+        // Flushing the data
+        D4.length = 0;
+        up._processData();
+        }
+      } else {
+        D4.push(json[0]);
+        up._processData();
+      }
     }
   }
 
@@ -85,7 +93,12 @@ export default class App extends Component {
       }, []);
       // Add the point to the ARCS
       this.setState({
-        points,
+        points
+      });
+      // Flushing points
+    } else {
+      this.setState({
+        points: []
       });
     }
   }
