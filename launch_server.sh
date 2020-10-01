@@ -1,11 +1,10 @@
 #!/bin/bash
-screen -X -S pewpew quit
+#screen -X -S pewpew quit
 
 go fmt
 go build
 
 rm pewpew.log
-cp dump.rdb.fresh ./db/dump.rdb
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 CONF="conf.sample"
