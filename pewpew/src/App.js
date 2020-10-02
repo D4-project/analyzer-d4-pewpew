@@ -44,11 +44,13 @@ export default class App extends Component {
 
     ws.onmessage = function (ev) {
       var json = JSON.parse(ev.data);
-      if (json.hasOwnProperty('command')){
-        if (json.command == "flush"){
-        // Flushing the data
-        D4.length = 0;
-        up._processData();
+      if (json.hasOwnProperty('command')) {
+        if (json.command == "flush") {
+          // Flushing the data
+          D4.length = 0;
+          this.setState({
+            points: []
+          });
         }
       } else {
         D4.push(json[0]);
@@ -95,11 +97,6 @@ export default class App extends Component {
       this.setState({
         points
       });
-      // Flushing points
-    } else {
-      this.setState({
-        points: []
-      });
     }
   }
 
@@ -140,7 +137,8 @@ export default class App extends Component {
           getTargetPosition={f => f.position}
           getSourceColor={[0, 128, 200]}
           getTargetColor={[200, 0, 80]}
-          getWidth={1}
+          getWidth={24}
+          pickable={true}
         />
       </DeckGL>
     );
