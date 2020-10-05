@@ -158,7 +158,7 @@ func main() {
 		}
 	})
 	e.Static("/", "./build")
-	e.Static("/map", "./map")
+	e.File("/map/ne_50m_admin_0_scale_rank.geojson", "./map/ne_50m_admin_0_scale_rank.geojson")
 
 	// Launch LPOP routine
 	input := lpoper(src, sortie)
