@@ -179,7 +179,14 @@ func main() {
 		b, _ := json.Marshal(m)
 		input <- string(b)
 		// emptying daily.json file
-		daily.Truncate(0)
+		err := daily.Truncate(0)
+		if err!= nil {
+			logger.Println(err)
+		}
+		daily.Sync()
+		if err!= nil {
+			logger.Println(err)
+		}
 	})
 	c.Start()
 
@@ -282,7 +289,14 @@ func send(c echo.Context) error {
 }
 
 func store(storeUpdate chan string, sortie chan os.Signal) *os.File {
-	file, err := os.Create("./build/daily.json")
+	// Create the daily file
+	// O_APPEND int = syscall.O_APPEND // append data to the file when writing.
+	// needed to move fd @ 0 after daily truncate(0)
+	// O_SYNC   int = syscall.O_SYNC   // open for synchronous I/O.
+	file, err := os.OpenFile("./build/daily.json", os.O_APPEND|os.O_CREATE|os.O_WRONLY|os.O_SYNC, 0644)
+	if err != nil {
+		logger.Println("Could not create daily.json", err)
+	}
 	go func() {
 		if err != nil {
 			logger.Printf("Could not create static/daily.json")
@@ -297,9 +311,26 @@ func store(storeUpdate chan string, sortie chan os.Signal) *os.File {
 				var cmd Cmd
 				err := json.Unmarshal([]byte(msg), &cmd)
 				if err != nil {
-					w.WriteString(msg)
-					w.WriteByte('\n')
-					w.Flush()
+					_, err := w.WriteString(msg)
+					if err != nil {
+						logger.Println(err)
+						break
+					}
+					err = w.WriteByte('\n')
+					if err != nil {
+						logger.Println(err)
+						break
+					}
+					err = w.Flush() // we have O_SYNC but older linux kernels are silly
+					if err != nil {
+						logger.Println(err)
+						break
+					}
+					err = file.Sync()
+					if err != nil {
+						logger.Println(err)
+						break
+					}
 				}
 			case <-sortie:
 				logger.Println("Exiting")
