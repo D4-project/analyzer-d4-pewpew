@@ -1,6 +1,7 @@
 /* global window */
 import React, { Component } from 'react';
 import DeckGL, { GeoJsonLayer, ArcLayer } from 'deck.gl';
+import { Nav, Navbar, NavDropdown } from 'react-bootstrap';
 
 const COUNTRIES = window.location + 'map/ne_50m_admin_0_scale_rank.geojson';
 const DAILY = window.location + "daily.json";
@@ -119,28 +120,48 @@ export default class App extends Component {
 
   render() {
     return (
-      <DeckGL controller={true} initialViewState={this.state.viewport}>
-        <GeoJsonLayer
-          id="base-map"
-          data={COUNTRIES}
-          stroked={true}
-          filled={true}
-          lineWidthMinPixels={2}
-          opacity={0.4}
-          getLineColor={[60, 60, 60]}
-          getFillColor={[200, 200, 200]}
-        />
-        <ArcLayer
-          id="arcs"
-          data={this.state.points}
-          getSourcePosition={f => [6.1319346, 49.611621]}
-          getTargetPosition={f => f.position}
-          getSourceColor={[0, 128, 200]}
-          getTargetColor={[200, 0, 80]}
-          getWidth={24}
-          pickable={true}
-        />
-      </DeckGL>
+      <>
+        <div style={{zIndex: '1'}} class="navbar">
+          <Navbar collapseOnSelect expand="lg" bg="dark" variant="dark">
+            <Navbar.Brand href="">D4 attack map</Navbar.Brand>
+            <Navbar.Toggle aria-controls="responsive-navbar-nav" />
+            <Navbar.Collapse id="responsive-navbar-nav">
+              <Nav className="mr-auto">
+                <Nav.Link href="#about">About</Nav.Link>
+                <Nav.Link href="#controls">Controls</Nav.Link>
+                {/* <NavDropdown title="Dataset" id="collasible-nav-dropdown">
+                  <NavDropdown.Item href="#action/3.1">SSH bruteforce</NavDropdown.Item>
+                </NavDropdown> */}
+              </Nav>
+            </Navbar.Collapse>
+          </Navbar>
+        </div>
+        <div class="deck-container">
+          <DeckGL controller={true} initialViewState={this.state.viewport}>
+
+            <GeoJsonLayer
+              id="base-map"
+              data={COUNTRIES}
+              stroked={true}
+              filled={true}
+              lineWidthMinPixels={2}
+              opacity={0.4}
+              getLineColor={[60, 60, 60]}
+              getFillColor={[200, 200, 200]}
+            />
+            <ArcLayer
+              id="arcs"
+              data={this.state.points}
+              getSourcePosition={f => [6.1319346, 49.611621]}
+              getTargetPosition={f => f.position}
+              getSourceColor={[0, 128, 200]}
+              getTargetColor={[200, 0, 80]}
+              getWidth={24}
+              pickable={true}
+            />
+          </DeckGL>
+        </div>
+      </>
     );
   }
 }
