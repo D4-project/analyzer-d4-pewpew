@@ -1,16 +1,36 @@
 /* global window */
 import React, { Component } from 'react';
 import DeckGL, { GeoJsonLayer, ArcLayer } from 'deck.gl';
-import { Nav, Navbar, NavDropdown } from 'react-bootstrap';
+import { Nav, Navbar } from 'react-bootstrap';
+import ReactModal from 'react-modal';
 
 const COUNTRIES = window.location + 'map/ne_50m_admin_0_scale_rank.geojson';
 const DAILY = window.location + "daily.json";
 const D4 = [];
 
+const MODALSTYLE={
+            overlay: {
+              // backgroundColor: 'papayawhip'
+              position: 'absolute',
+              top: '56px',
+              bottom: '40px'
+            },
+            content: {
+              color: 'lightsteelblue',
+              position: 'absolute',
+              top: '40px',
+              left: '40px',
+              right: '40px',
+              bottom: '40px'
+            }};
+
+ReactModal.setAppElement('#map');
+
 export default class App extends Component {
   constructor(props) {
     super(props);
     this.state = {
+      // deck.gl related
       viewport: {
         width: window.innerWidth,
         height: window.innerHeight,
@@ -19,11 +39,19 @@ export default class App extends Component {
         zoom: 4,
         maxZoom: 12
       },
-      points: []
+      points: [],
+      // modal related
+      showModal: false
     };
+    // deck.gl related
     this._getData = this._getData.bind(this);
     this._processData = this._processData.bind(this);
+    // modal related
+    this.handleOpenModal = this.handleOpenModal.bind(this);
+    this.handleCloseModal = this.handleCloseModal.bind(this);
   }
+
+  // deck.gl related
 
   _getData() {
     var loc = window.location;
@@ -118,17 +146,26 @@ export default class App extends Component {
     });
   }
 
+  // modal related
+  handleOpenModal() {
+    this.setState({ showModal: true });
+  }
+
+  handleCloseModal() {
+    this.setState({ showModal: false });
+  }
+
   render() {
     return (
       <>
-        <div style={{zIndex: '1'}} class="navbar">
-          <Navbar collapseOnSelect expand="lg" bg="dark" variant="dark">
+        <div style={{ zIndex: '1' }}>
+          <Navbar collapseOnSelect expand="lg" bg="dark" variant="dark" fixed="top">
             <Navbar.Brand href="">D4 attack map</Navbar.Brand>
             <Navbar.Toggle aria-controls="responsive-navbar-nav" />
             <Navbar.Collapse id="responsive-navbar-nav">
               <Nav className="mr-auto">
-                <Nav.Link href="#about">About</Nav.Link>
-                <Nav.Link href="#controls">Controls</Nav.Link>
+                <Nav.Link onClick={this.handleOpenModal}>About</Nav.Link>
+                <Nav.Link>Controls</Nav.Link>
                 {/* <NavDropdown title="Dataset" id="collasible-nav-dropdown">
                   <NavDropdown.Item href="#action/3.1">SSH bruteforce</NavDropdown.Item>
                 </NavDropdown> */}
@@ -136,7 +173,16 @@ export default class App extends Component {
             </Navbar.Collapse>
           </Navbar>
         </div>
-        <div class="deck-container">
+        <ReactModal
+          isOpen={this.state.showModal}
+          contentLabel="onRequestClose Example"
+          onRequestClose={this.handleCloseModal}
+          style = {MODALSTYLE}
+        >
+          <p>Modal text!</p>
+          <button onClick={this.handleCloseModal}>Close Modal</button>
+        </ReactModal>
+        <div className="deck-container">
           <DeckGL controller={true} initialViewState={this.state.viewport}>
 
             <GeoJsonLayer
