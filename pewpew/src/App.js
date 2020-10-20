@@ -1,6 +1,6 @@
 /* global window */
 import React, { Component } from 'react';
-import DeckGL, { GeoJsonLayer, ArcLayer } from 'deck.gl';
+import DeckGL, { GeoJsonLayer, ArcLayer, MapController } from 'deck.gl';
 import { Nav, Navbar } from 'react-bootstrap';
 import ReactModal from 'react-modal';
 
@@ -8,21 +8,21 @@ const COUNTRIES = window.location + 'map/ne_50m_admin_0_scale_rank.geojson';
 const DAILY = window.location + "daily.json";
 const D4 = [];
 
-const MODALSTYLE={
-            overlay: {
-              // backgroundColor: 'papayawhip'
-              position: 'absolute',
-              top: '56px',
-              bottom: '40px'
-            },
-            content: {
-              color: 'lightsteelblue',
-              position: 'absolute',
-              top: '40px',
-              left: '40px',
-              right: '40px',
-              bottom: '40px'
-            }};
+const MODALSTYLE = {
+  overlay: {
+    // backgroundColor: 'papayawhip'
+    position: 'absolute',
+    top: '56px',
+    bottom: '40px'
+  },
+  content: {
+    position: 'absolute',
+    top: '40px',
+    left: '40px',
+    right: '40px',
+    bottom: '40px'
+  }
+};
 
 ReactModal.setAppElement('#map');
 
@@ -41,14 +41,17 @@ export default class App extends Component {
       },
       points: [],
       // modal related
-      showModal: false
+      showModalAbout: false,
+      showModalControls: false
     };
     // deck.gl related
     this._getData = this._getData.bind(this);
     this._processData = this._processData.bind(this);
     // modal related
-    this.handleOpenModal = this.handleOpenModal.bind(this);
-    this.handleCloseModal = this.handleCloseModal.bind(this);
+    this.handleOpenModalAbout = this.handleOpenModalAbout.bind(this);
+    this.handleCloseModalAbout = this.handleCloseModalAbout.bind(this);
+    this.handleOpenModalControls = this.handleOpenModalControls.bind(this);
+    this.handleCloseModalControls = this.handleCloseModalControls.bind(this);
   }
 
   // deck.gl related
@@ -147,12 +150,27 @@ export default class App extends Component {
   }
 
   // modal related
-  handleOpenModal() {
-    this.setState({ showModal: true });
+  handleOpenModalAbout() {
+    this.closeAllModals()
+    this.setState({ showModalAbout: true });
   }
 
-  handleCloseModal() {
-    this.setState({ showModal: false });
+  handleCloseModalAbout() {
+    this.setState({ showModalAbout: false });
+  }
+
+  handleOpenModalControls() {
+    this.closeAllModals()
+    this.setState({ showModalControls: true });
+  }
+
+  handleCloseModalControls() {
+    this.setState({ showModalControls: false });
+  }
+
+  closeAllModals() {
+    this.setState({ showModalAbout: false });
+    this.setState({ showModalControls: false });
   }
 
   render() {
@@ -164,8 +182,8 @@ export default class App extends Component {
             <Navbar.Toggle aria-controls="responsive-navbar-nav" />
             <Navbar.Collapse id="responsive-navbar-nav">
               <Nav className="mr-auto">
-                <Nav.Link onClick={this.handleOpenModal}>About</Nav.Link>
-                <Nav.Link>Controls</Nav.Link>
+                <Nav.Link onClick={this.handleOpenModalAbout}>About</Nav.Link>
+                <Nav.Link onClick={this.handleOpenModalControls}>Controls</Nav.Link>
                 {/* <NavDropdown title="Dataset" id="collasible-nav-dropdown">
                   <NavDropdown.Item href="#action/3.1">SSH bruteforce</NavDropdown.Item>
                 </NavDropdown> */}
@@ -174,17 +192,58 @@ export default class App extends Component {
           </Navbar>
         </div>
         <ReactModal
-          isOpen={this.state.showModal}
+          isOpen={this.state.showModalAbout}
           contentLabel="onRequestClose Example"
           onRequestClose={this.handleCloseModal}
-          style = {MODALSTYLE}
+          style={MODALSTYLE}
         >
-          <p>Modal text!</p>
-          <button onClick={this.handleCloseModal}>Close Modal</button>
+          <h2>About this page</h2>
+          <p class="text-justify">This page displays realtime SSH bruteforce attacks registered against <a href="http://d4-project.org">d4-project's</a> main instance, hosted in Luxembourg.</p>
+          <p class="text-justify">This page flushed every day at midnight.</p>
+
+          <button onClick={this.handleCloseModalAbout}>Close</button>
+        </ReactModal>
+        <ReactModal
+          isOpen={this.state.showModalControls}
+          contentLabel="onRequestClose Example"
+          onRequestClose={this.handleCloseModalControls}
+          style={MODALSTYLE}
+        >
+          <h2>On a Desktop</h2>
+          <h3>Using the Mouse</h3>
+          <ul>
+            <li>Drag and Drop to move,</li>
+            <li>Scrool to zoom,</li>
+            <li>Double Click to zoom,</li>
+            <li>Hold ctrl while dragging to rotate the view and change bearing.</li>
+          </ul>
+          <h3>Using the Keyboard</h3>
+          <ul>
+            <li>Use arrow keys to move the view,</li>
+            <li>Hold ctrl to rotate hand change the bearing.</li>
+          </ul>
+          <h2>On a Mobile Phone</h2>
+          <ul>
+            <li>Move you finger to move,</li>
+            <li>Pinch to zoom,</li>
+            <li>Drag two fingers to rotate.</li>
+          </ul>
+          <button onClick={this.handleCloseModalControls}>Close</button>
         </ReactModal>
         <div className="deck-container">
-          <DeckGL controller={true} initialViewState={this.state.viewport}>
-
+          <DeckGL
+            controller={{
+              type: MapController,
+              scrollZoom: true,
+              dragPan: true,
+              dragRotate: true,
+              doubleClickZoom: true,
+              touchZoom: true,
+              touchRotate: true,
+              keyboard: true
+            }}
+            initialViewState={this.state.viewport}
+          >
             <GeoJsonLayer
               id="base-map"
               data={COUNTRIES}
