@@ -94,6 +94,7 @@ func main() {
 		fmt.Printf("\n")
 		fmt.Printf("redis_queue - queueuuid to pop\n")
 		fmt.Printf("redis_input - host:port/db\n")
+		fmt.Printf("folders_toserve - path \n")
 		fmt.Printf("\n")
 		flag.PrintDefaults()
 	}
@@ -159,6 +160,19 @@ func main() {
 	})
 	e.Static("/", "./build")
 	e.File("/map/ne_50m_admin_0_scale_rank.geojson", "./map/ne_50m_admin_0_scale_rank.geojson")
+	// Add route for each folder to serve -- careful with that /D
+	toserve := config.ReadConfigFileLines(*confdir, "folders_toserve")
+	for _, v := range toserve {
+		fss := strings.Split(string(v), ":")
+		rd4.redisHost = fss[0]
+		rd4.redisPort = fss[1]
+		if len(fss) < 2 {
+			logger.Fatal("Folder to serve error")
+		} else {
+			logger.Println(string(fss[1]), string(fss[0]))
+			e.Static(string(fss[1]), string(fss[0]))
+		}
+	}
 
 	// Launch LPOP routine
 	input := lpoper(src, sortie)
@@ -180,11 +194,11 @@ func main() {
 		input <- string(b)
 		// emptying daily.json file
 		err := daily.Truncate(0)
-		if err!= nil {
+		if err != nil {
 			logger.Println(err)
 		}
 		daily.Sync()
-		if err!= nil {
+		if err != nil {
 			logger.Println(err)
 		}
 	})
