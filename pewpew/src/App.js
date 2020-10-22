@@ -1,7 +1,7 @@
 /* global window */
 import React, { Component } from 'react';
 import DeckGL, { GeoJsonLayer, ArcLayer, MapController } from 'deck.gl';
-import { Nav, Navbar } from 'react-bootstrap';
+import { Nav, Navbar, NavDropdown } from 'react-bootstrap';
 import ReactModal from 'react-modal';
 
 const COUNTRIES = window.location + 'map/ne_50m_admin_0_scale_rank.geojson';
@@ -184,9 +184,11 @@ export default class App extends Component {
               <Nav className="mr-auto">
                 <Nav.Link onClick={this.handleOpenModalAbout}>About</Nav.Link>
                 <Nav.Link onClick={this.handleOpenModalControls}>Controls</Nav.Link>
-                {/* <NavDropdown title="Dataset" id="collasible-nav-dropdown">
-                  <NavDropdown.Item href="#action/3.1">SSH bruteforce</NavDropdown.Item>
-                </NavDropdown> */}
+                <NavDropdown title="Statistics" id="collasible-nav-dropdown">
+                  <NavDropdown.Item href="sshstatistics/dailystatistics.html">Daily</NavDropdown.Item>
+                  <NavDropdown.Item href="sshstatistics/monthlystatistics.html">Monthly</NavDropdown.Item>
+                  <NavDropdown.Item href="sshstatistics/yearlystatistics.html">Yearly</NavDropdown.Item>
+                </NavDropdown>
               </Nav>
             </Navbar.Collapse>
           </Navbar>
