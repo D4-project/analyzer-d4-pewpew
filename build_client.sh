@@ -1,5 +1,5 @@
 #!/bin/bash
 pushd pewpew
 npm install
- pm run build
+npm run build
 rsync -r --update build ../build
